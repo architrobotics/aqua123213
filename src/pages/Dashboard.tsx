@@ -11,13 +11,12 @@ import { Bottle } from '../types';
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { profile, hydrationLogs, bottles, addHydration, removeHydration, addDailyAdjustment, dailyAdjustments } = useApp();
+  const { profile, hydrationLogs, bottles, addHydration, removeHydration, addDailyAdjustment, dailyAdjustments, weather, setWeather } = useApp();
   
   const [coachTip, setCoachTip] = useState("Drink a glass of water before your next meal to boost digestion and skin clarity.");
   const [showBottleManager, setShowBottleManager] = useState(false);
   const [showSweatMode, setShowSweatMode] = useState(false);
   const [showEditProgress, setShowEditProgress] = useState(false);
-  const [weather, setWeather] = useState<{ temp: number; humidity: number; adjustment: number } | null>(null);
 
   // Calculate today's total
   const today = new Date().toISOString().split('T')[0];
@@ -100,36 +99,40 @@ export function Dashboard() {
     fetchTip();
   }, []);
 
-  // Weather integration
+  // Weather integration (Hyderabad, India)
   useEffect(() => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m`);
-          const data = await res.json();
-          const temp = data.current.temperature_2m;
-          const humidity = data.current.relative_humidity_2m;
-          
-          let adjustment = 0;
-          if (temp > 25) adjustment += 500;
-          else if (temp > 20) adjustment += 250;
-          
-          if (humidity > 70) adjustment += 200;
+    const fetchWeather = async () => {
+      try {
+        // Coordinates for Hyderabad, India
+        const latitude = 17.3850;
+        const longitude = 78.4867;
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m`);
+        const data = await res.json();
+        const temp = data.current.temperature_2m;
+        const humidity = data.current.relative_humidity_2m;
+        
+        let adjustment = 0;
+        if (temp > 25) adjustment += 500;
+        else if (temp > 20) adjustment += 250;
+        
+        if (humidity > 70) adjustment += 200;
 
-          setWeather({ temp, humidity, adjustment });
-          
-          // Add weather adjustment if not already added today
-          const hasWeatherAdjustment = dailyAdjustments.some(a => a.date === today && a.source === 'weather');
-          if (adjustment > 0 && !hasWeatherAdjustment) {
-            addDailyAdjustment(adjustment, 'weather');
-          }
-        } catch (e) {
-          console.error("Weather fetch failed", e);
+        setWeather({ temp, humidity, adjustment });
+        
+        // Add weather adjustment if not already added today
+        const hasWeatherAdjustment = dailyAdjustments.some(a => a.date === today && a.source === 'weather');
+        if (adjustment > 0 && !hasWeatherAdjustment) {
+          addDailyAdjustment(adjustment, 'weather');
         }
-      });
+      } catch (e) {
+        console.error("Weather fetch failed", e);
+      }
+    };
+    
+    if (!weather) {
+      fetchWeather();
     }
-  }, []);
+  }, [addDailyAdjustment, dailyAdjustments, today, weather, setWeather]);
 
   return (
     <motion.div 

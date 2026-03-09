@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserProfile, HydrationLog, Bottle, SkinLog } from '../types';
+import { UserProfile, HydrationLog, Bottle, SkinLog, Meal } from '../types';
 import { supabase } from '../lib/supabase';
 
 interface AppState {
@@ -10,6 +10,7 @@ interface AppState {
   skinLogs: SkinLog[];
   meals: Meal[];
   dailyAdjustments: { date: string; amount: number; source: string }[];
+  weather: { temp: number; humidity: number; adjustment: number } | null;
 }
 
 interface AppContextType extends AppState {
@@ -30,6 +31,7 @@ interface AppContextType extends AppState {
   updateMeal: (id: string, updates: Partial<Meal>) => void;
   removeMeal: (id: string) => void;
   addDailyAdjustment: (amount: number, source: string) => void;
+  setWeather: (weather: { temp: number; humidity: number; adjustment: number } | null) => void;
 }
 
 const defaultState: AppState = {
@@ -44,6 +46,7 @@ const defaultState: AppState = {
   skinLogs: [],
   meals: [],
   dailyAdjustments: [],
+  weather: null,
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -233,6 +236,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const setWeather = (weather: { temp: number; humidity: number; adjustment: number } | null) => {
+    setState(prev => ({ ...prev, weather }));
+  };
+
   return (
     <AppContext.Provider value={{
       ...state,
@@ -252,7 +259,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addMeal,
       updateMeal,
       removeMeal,
-      addDailyAdjustment
+      addDailyAdjustment,
+      setWeather
     }}>
       {children}
     </AppContext.Provider>

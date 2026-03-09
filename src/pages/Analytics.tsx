@@ -1,13 +1,16 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area } from 'recharts';
 import { Card, GlassCard } from '../components/ui/Card';
-import { Flame, Trophy, TrendingUp, CalendarDays } from 'lucide-react';
+import { Flame, Trophy, TrendingUp, CalendarDays, RefreshCw, Award } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { format, subDays, eachDayOfInterval } from 'date-fns';
+import { Button } from '../components/ui/Button';
+import { ai } from '../lib/gemini';
 
 export function Analytics() {
-  const { hydrationLogs, skinLogs, profile, dailyAdjustments } = useApp();
+  const { hydrationLogs, skinLogs, profile, dailyAdjustments, updateProfile } = useApp();
+  const [isResetting, setIsResetting] = useState(false);
 
   // Calculate weekly data
   const weeklyData = useMemo(() => {
@@ -41,11 +44,43 @@ export function Analytics() {
   
   // Calculate streak
   let streak = 0;
-  for (let i = weeklyData.length - 1; i >= 0; i--) {
-    if (weeklyData[i].metGoal) {
+  let currentDate = new Date();
+  currentDate.setHours(0, 0, 0, 0);
+
+  const logsByDate = hydrationLogs.reduce((acc, log) => {
+    const date = log.timestamp.split('T')[0];
+    acc[date] = (acc[date] || 0) + log.amount_ml;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const adjustmentsByDate = dailyAdjustments.reduce((acc, adj) => {
+    acc[adj.date] = (acc[adj.date] || 0) + adj.amount;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const baseGoal = profile?.water_goal || 2500;
+  const todayStr = currentDate.toISOString().split('T')[0];
+  const todayTotal = logsByDate[todayStr] || 0;
+  const todayGoal = baseGoal + (adjustmentsByDate[todayStr] || 0);
+  
+  let checkDate = new Date(currentDate);
+  
+  if (todayTotal >= todayGoal && todayGoal > 0) {
+    streak++;
+    checkDate.setDate(checkDate.getDate() - 1);
+  } else {
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+
+  while (true) {
+    const dateStr = checkDate.toISOString().split('T')[0];
+    const total = logsByDate[dateStr] || 0;
+    const dayGoal = baseGoal + (adjustmentsByDate[dateStr] || 0);
+    
+    if (total >= dayGoal && dayGoal > 0) {
       streak++;
-    } else if (i !== weeklyData.length - 1) {
-      // Break streak if not met, unless it's today (still have time)
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
       break;
     }
   }
@@ -72,15 +107,66 @@ export function Analytics() {
     }).filter(d => d.skin > 0 || d.water > 0); // Only show days with some data
   }, [weeklyData, skinLogs]);
 
+  const handleResetGoal = async () => {
+    if (!profile) return;
+    setIsResetting(true);
+    try {
+      const prompt = `
+        User details:
+        Weight: ${profile.weight}kg
+        Height: ${profile.height}cm
+        Age: ${profile.age}
+        Activity: ${profile.activity_level}
+        Climate: ${profile.climate}
+        Skin goal: ${profile.skin_goal}
+
+        Calculate the optimal daily water intake in ml.
+        Return ONLY a JSON object with this exact structure:
+        {
+          "goal": 2600,
+          "tips": [
+            "Drink 400ml after waking up",
+            "Sip water throughout the day for clear skin"
+          ]
+        }
+      `;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite-preview',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+        }
+      });
+
+      if (response.text) {
+        const data = JSON.parse(response.text);
+        updateProfile({ water_goal: data.goal });
+      }
+    } catch (error) {
+      console.error('Failed to reset goal', error);
+      // Fallback
+      updateProfile({ water_goal: 2500 });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col gap-8"
+      className="flex flex-col gap-8 pb-20"
     >
-      <header>
-        <h1 className="font-display text-3xl font-bold text-slate-800">Analytics</h1>
-        <p className="text-text-secondary">Your hydration journey in numbers.</p>
+      <header className="flex justify-between items-center">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-slate-800">Analytics</h1>
+          <p className="text-text-secondary">Your hydration journey in numbers.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleResetGoal} isLoading={isResetting} className="flex items-center gap-2">
+          <RefreshCw size={16} />
+          Reset Goal
+        </Button>
       </header>
 
       {/* Streaks & Stats */}
@@ -100,6 +186,37 @@ export function Analytics() {
           <h3 className="font-display text-3xl font-bold text-slate-800">{goalsMet}</h3>
           <p className="text-sm font-medium text-text-secondary">Goals Met (7d)</p>
         </GlassCard>
+      </section>
+
+      {/* Badges */}
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-xl font-bold text-slate-800">Badges</h2>
+          <div className="flex items-center gap-2 text-sm text-text-muted">
+            <Award size={16} />
+            <span>Achievements</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <GlassCard className={`flex flex-col items-center justify-center p-4 text-center ${streak >= 3 ? 'opacity-100' : 'opacity-50 grayscale'}`}>
+            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-yellow-100 text-yellow-600">
+              <Flame size={20} />
+            </div>
+            <p className="text-xs font-bold text-slate-800">3-Day</p>
+          </GlassCard>
+          <GlassCard className={`flex flex-col items-center justify-center p-4 text-center ${streak >= 7 ? 'opacity-100' : 'opacity-50 grayscale'}`}>
+            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 text-orange-600">
+              <Flame size={20} />
+            </div>
+            <p className="text-xs font-bold text-slate-800">7-Day</p>
+          </GlassCard>
+          <GlassCard className={`flex flex-col items-center justify-center p-4 text-center ${streak >= 30 ? 'opacity-100' : 'opacity-50 grayscale'}`}>
+            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
+              <Flame size={20} />
+            </div>
+            <p className="text-xs font-bold text-slate-800">30-Day</p>
+          </GlassCard>
+        </div>
       </section>
 
       {/* Weekly Progress */}

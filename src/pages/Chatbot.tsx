@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { ai } from '../lib/gemini';
 import ReactMarkdown from 'react-markdown';
+import { useApp } from '../context/AppContext';
 
 type Message = {
   id: string;
@@ -13,6 +14,7 @@ type Message = {
 };
 
 export function Chatbot() {
+  const { weather, profile } = useApp();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -27,13 +29,21 @@ export function Chatbot() {
 
   useEffect(() => {
     // Initialize chat session once
+    let systemInstruction = "You are Aqua, an AI hydration and skin health coach. Be encouraging, concise, and helpful.";
+    if (weather) {
+      systemInstruction += ` The user is currently in Hyderabad, India. The current temperature is ${weather.temp}°C and humidity is ${weather.humidity}%. Take this into account when giving advice.`;
+    }
+    if (profile) {
+      systemInstruction += ` The user's name is ${profile.name}, weight is ${profile.weight}kg, and base daily water goal is ${profile.water_goal}ml.`;
+    }
+
     chatRef.current = ai.chats.create({
       model: 'gemini-3.1-pro-preview',
       config: {
-        systemInstruction: "You are Aqua, an AI hydration and skin health coach. Be encouraging, concise, and helpful.",
+        systemInstruction,
       }
     });
-  }, []);
+  }, [weather, profile]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

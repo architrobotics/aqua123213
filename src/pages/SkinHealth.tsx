@@ -230,7 +230,7 @@ function EditSkinLogModal({ logId, onClose }: { logId: string, onClose: () => vo
             {skinStatuses.map((s) => (
               <button
                 key={s.id}
-                onClick={() => setStatus(s.id)}
+                onClick={() => setStatus(s.id as any)}
                 className={`rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
                   status === s.id 
                     ? s.color 
