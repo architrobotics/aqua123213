@@ -1,5 +1,5 @@
 {
-  "name": "AquaGlow",
+  "name": "Aqua",
   "description": "AI-powered hydration and nutrition assistant for skin health and wellness.",
   "requestFramePermissions": ["camera", "geolocation"]
 }

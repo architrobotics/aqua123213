@@ -1,28 +1,63 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { Droplet, ArrowRight, Mail, Lock } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Droplet, ArrowRight, Mail, Lock, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../lib/supabase';
+
+type AuthMode = 'signin' | 'signup' | 'forgot';
 
 export function Login() {
   const navigate = useNavigate();
   const { login } = useApp();
+  const [mode, setMode] = useState<AuthMode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
+    if (!email) return;
     
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      login(email);
+    setError(null);
+    setMessage(null);
+
+    try {
+      if (!supabase) {
+        // Fallback to local demo mode if Supabase is not configured
+        setTimeout(() => {
+          login(email);
+          setIsLoading(false);
+          navigate('/');
+        }, 1000);
+        return;
+      }
+
+      if (mode === 'signup') {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        setMessage('Check your email for the confirmation link.');
+      } else if (mode === 'signin') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        login(email);
+        navigate('/');
+      } else if (mode === 'forgot') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) throw error;
+        setMessage('Password reset instructions sent to your email.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during authentication.');
+    } finally {
       setIsLoading(false);
-      navigate('/');
-    }, 1000);
+    }
   };
 
   return (
@@ -37,14 +72,29 @@ export function Login() {
             <Droplet size={32} className="fill-primary" />
           </div>
           <h1 className="font-display text-3xl font-bold tracking-tight text-slate-800">
-            Welcome Back
+            {mode === 'signin' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
           </h1>
           <p className="mt-2 text-text-secondary">
-            Sign in to continue your hydration journey.
+            {mode === 'signin' ? 'Sign in to continue your hydration journey.' : 
+             mode === 'signup' ? 'Join Aqua to track your hydration.' : 
+             'Enter your email to receive reset instructions.'}
           </p>
         </div>
 
-        <form onSubmit={handleLogin} className="flex flex-col gap-4">
+        <AnimatePresence mode="wait">
+          {error && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-600 flex items-center gap-2">
+              <AlertCircle size={16} /> {error}
+            </motion.div>
+          )}
+          {message && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-600">
+              {message}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <form onSubmit={handleAuth} className="flex flex-col gap-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
             <div className="relative">
@@ -62,38 +112,60 @@ export function Login() {
             </div>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Password</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
-                <Lock size={18} />
+          {mode !== 'forgot' && (
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="block text-sm font-medium text-slate-700">Password</label>
+                {mode === 'signin' && (
+                  <button type="button" onClick={() => setMode('forgot')} className="text-xs font-medium text-primary hover:underline">
+                    Forgot password?
+                  </button>
+                )}
               </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-slate-800 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
-                required
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+                  <Lock size={18} />
+                </div>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-slate-800 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  required
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <Button type="submit" size="lg" className="mt-4 w-full" isLoading={isLoading}>
-            Sign In
+            {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : 'Send Reset Link'}
           </Button>
         </form>
 
         <div className="mt-8 text-center text-sm text-text-secondary">
-          Don't have an account?{' '}
-          <button className="font-bold text-primary hover:underline" onClick={(e) => {
-            e.preventDefault();
-            login('demo@example.com');
-            navigate('/');
-          }}>
-            Create one
-          </button>
+          {mode === 'signin' ? (
+            <>
+              Don't have an account?{' '}
+              <button className="font-bold text-primary hover:underline" onClick={() => setMode('signup')}>
+                Create one
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?{' '}
+              <button className="font-bold text-primary hover:underline" onClick={() => setMode('signin')}>
+                Sign in
+              </button>
+            </>
+          )}
         </div>
+        
+        {!supabase && (
+          <div className="mt-6 rounded-xl bg-slate-50 p-3 text-center text-xs text-slate-500">
+            Running in local demo mode. Supabase is not configured.
+          </div>
+        )}
       </motion.div>
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Sparkles, Calendar, Droplets, Activity, ChevronRight } from 'lucide-react';
+import { Sparkles, Calendar, Droplets, Activity, ChevronRight, Trash2, Edit2, X } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, GlassCard } from '../components/ui/Card';
 import { ai } from '../lib/gemini';
@@ -15,10 +15,11 @@ const skinStatuses = [
 ];
 
 export function SkinHealth() {
-  const { skinLogs, addSkinLog, hydrationLogs, profile } = useApp();
+  const { skinLogs, addSkinLog, updateSkinLog, removeSkinLog, hydrationLogs, profile } = useApp();
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [insight, setInsight] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
 
   // Check if already logged today
   const today = new Date().toISOString().split('T')[0];
@@ -76,6 +77,7 @@ export function SkinHealth() {
       else if (dateStr === format(subDays(new Date(), 1), 'yyyy-MM-dd')) dateLabel = 'Yesterday';
 
       return {
+        id: log.id,
         date: dateLabel,
         status: log.skin_status,
         water: `${(waterForDay / 1000).toFixed(1)}L`,
@@ -151,8 +153,8 @@ export function SkinHealth() {
           <Button variant="ghost" size="sm" className="text-primary">View All <ChevronRight size={16} /></Button>
         </div>
         <div className="flex flex-col gap-3">
-          {recentLogs.length > 0 ? recentLogs.map((log, i) => (
-            <Card key={i} className="flex items-center justify-between p-4">
+          {recentLogs.length > 0 ? recentLogs.map((log) => (
+            <Card key={log.id} className="flex items-center justify-between p-4">
               <div className="flex items-center gap-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                   <Calendar size={18} />
@@ -162,12 +164,22 @@ export function SkinHealth() {
                   <p className="text-sm text-text-secondary">{log.status}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="flex items-center justify-end gap-1 text-primary">
-                  <Droplets size={14} />
-                  <span className="font-bold">{log.water}</span>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <div className="flex items-center justify-end gap-1 text-primary">
+                    <Droplets size={14} />
+                    <span className="font-bold">{log.water}</span>
+                  </div>
+                  <p className="text-xs text-text-muted">Goal: {log.goal}</p>
                 </div>
-                <p className="text-xs text-text-muted">Goal: {log.goal}</p>
+                <div className="flex flex-col gap-1 border-l border-slate-100 pl-3">
+                  <button onClick={() => setEditingLogId(log.id)} className="text-slate-400 hover:text-primary">
+                    <Edit2 size={16} />
+                  </button>
+                  <button onClick={() => removeSkinLog(log.id)} className="text-slate-400 hover:text-rose-500">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             </Card>
           )) : (
@@ -175,6 +187,70 @@ export function SkinHealth() {
           )}
         </div>
       </section>
+
+      {editingLogId && (
+        <EditSkinLogModal 
+          logId={editingLogId} 
+          onClose={() => setEditingLogId(null)} 
+        />
+      )}
     </motion.div>
+  );
+}
+
+function EditSkinLogModal({ logId, onClose }: { logId: string, onClose: () => void }) {
+  const { skinLogs, updateSkinLog } = useApp();
+  const log = skinLogs.find(l => l.id === logId);
+  const [status, setStatus] = useState(log?.skin_status || 'Clear');
+
+  if (!log) return null;
+
+  const handleSave = () => {
+    updateSkinLog(logId, { skin_status: status as any });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl"
+      >
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="font-display text-2xl font-bold text-slate-800">Edit Skin Log</h2>
+          <button onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-2">
+            {skinStatuses.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setStatus(s.id)}
+                className={`rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+                  status === s.id 
+                    ? s.color 
+                    : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          <Button 
+            className="mt-4" 
+            size="lg"
+            onClick={handleSave}
+          >
+            Save Changes
+          </Button>
+        </div>
+      </motion.div>
+    </div>
   );
 }

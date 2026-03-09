@@ -8,7 +8,7 @@ import { ai } from '../lib/gemini';
 import { useApp } from '../context/AppContext';
 
 const steps = [
-  { id: 'welcome', title: 'Welcome to AquaGlow' },
+  { id: 'welcome', title: 'Welcome to Aqua' },
   { id: 'body', title: 'About You' },
   { id: 'lifestyle', title: 'Your Lifestyle' },
   { id: 'goals', title: 'Skin Goals' },
@@ -127,7 +127,7 @@ export function Onboarding() {
                 <Droplet size={48} className="fill-primary" />
               </div>
               <h1 className="mb-4 font-display text-4xl font-bold tracking-tight text-slate-800">
-                AquaGlow
+                Aqua
               </h1>
               <p className="mb-12 text-lg text-text-secondary">
                 Your AI-powered hydration assistant for glowing skin and optimal wellness.

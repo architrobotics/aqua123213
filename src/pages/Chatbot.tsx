@@ -17,7 +17,7 @@ export function Chatbot() {
     {
       id: '1',
       role: 'model',
-      text: "Hi! I'm your AquaGlow AI coach. How can I help you with your hydration and skin goals today?",
+      text: "Hi! I'm your Aqua AI coach. How can I help you with your hydration and skin goals today?",
     },
   ]);
   const [input, setInput] = useState('');
@@ -30,7 +30,7 @@ export function Chatbot() {
     chatRef.current = ai.chats.create({
       model: 'gemini-3.1-pro-preview',
       config: {
-        systemInstruction: "You are AquaGlow, an AI hydration and skin health coach. Be encouraging, concise, and helpful.",
+        systemInstruction: "You are Aqua, an AI hydration and skin health coach. Be encouraging, concise, and helpful.",
       }
     });
   }, []);

@@ -93,7 +93,7 @@ export function MealScanner() {
 
   const handleApplyAdjustment = () => {
     if (result) {
-      addDailyAdjustment(result.adjustment);
+      addDailyAdjustment(result.adjustment, 'meal');
       navigate('/');
     }
   };

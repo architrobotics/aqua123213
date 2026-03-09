@@ -21,7 +21,7 @@ export function Layout() {
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Droplet size={20} className="fill-primary" />
           </div>
-          <span className="font-display text-xl font-bold tracking-tight text-slate-800">AquaGlow</span>
+          <span className="font-display text-xl font-bold tracking-tight text-slate-800">Aqua</span>
         </div>
       </header>
 
@@ -31,7 +31,7 @@ export function Layout() {
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <Droplet size={24} className="fill-primary" />
           </div>
-          <span className="font-display text-2xl font-bold tracking-tight text-slate-800">AquaGlow</span>
+          <span className="font-display text-2xl font-bold tracking-tight text-slate-800">Aqua</span>
         </div>
         
         <nav className="flex flex-1 flex-col gap-2">
